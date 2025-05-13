@@ -4,8 +4,18 @@
 
 {%- set title = macros_translate::translate(key="all_tags", default="All tags", language_strings=language_strings) -%}
 
+{%- set rel_attributes = macros_rel_attributes::rel_attributes() | trim -%}
+
 {{ macros_page_header::page_header(title=title)}}
 
+{%- if config.markdown.external_links_target_blank -%}
+    {%- set blank_target = "target=_blank" -%}
+{%- else -%}
+    {%- set blank_target = "" -%}
+{%- endif -%}
+
+{%- set feed_url = config.feed_filenames[0] | default(value=(config.feed_filename)) -%}
+{% set has_date = false %}
 {% set tag_count = terms | length %}
 {% if config.extra.tag_sorting == "frequency" %}
     {% set terms = terms | sort(attribute="pages") | reverse %}
@@ -15,7 +25,22 @@
 <div id="tag-cloud" class="{% if tag_count > 16 %}three-columns{% elif tag_count > 8 %}two-columns{% endif %}">
     <ul class="tags">
         {%- for term in terms -%}
+            {% if taxonomy.feed %}
+                
+                {% set term_info = get_taxonomy_term(kind=taxonomy.name, term=term.name, include_pages=true) %}
+                    {% for page in term_info.pages %}
+                        {% if page.date %}
+                            {% set_global has_date = true %}
+                            {% break %}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
             <li class="tags-item">
+                {% if has_date %}
+                <a class="nav-links no-hover-padding social" rel="{{ rel_attributes }}" {{ blank_target }} href="{{ get_url(path=term.path ~ config.feed_filenames[0], lang=lang, trailing_slash=false) | safe }}">
+                    <img loading="lazy" alt="feed" title="feed" src="{{ get_url(path='/social_icons/rss.svg') }}">
+                </a>
+                {% endif %}
                 {%- set number_of_posts = term.pages | length -%}
                 {% if config.extra.compact_tags %}
                     {# Shows the number of posts per tag as a superscript #}
@@ -28,7 +53,7 @@
                     </a> <sup>{{ number_of_posts }}</sup>
                 {% else %}
                     <a href="{{ term.permalink | safe }}">
-                        {{ term.name }} </a>
+                        {{ term.name }} - {{ taxonomy.feed | as_str }} - {{ has_date | as_str }}</a>
                     <span> – </span>
                     {{- macros_translate::translate(key="posts", number=number_of_posts, default="$NUMBER posts", language_strings=language_strings) -}}
                 {% endif %}
